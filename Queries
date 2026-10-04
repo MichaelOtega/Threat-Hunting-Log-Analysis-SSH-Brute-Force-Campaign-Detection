@@ -1,0 +1,53 @@
+# Splunk Threat Hunting Queries (SPL)
+
+Below is the Search Processing Language (SPL) utilized during the threat hunting phase to filter noise, extract indicators of compromise (IOCs), and build visual timeline metrics.
+
+### 1. Threat Intelligence Extraction
+**Isolate Top 5 Malicious Source IPs:**
+```spl
+index=* status="Failed"
+| top limit=5 src_ip
+| rename src_ip as "Malicious Source IP", count as "Attack Attempts", percent as "Share of Traffic %"
+```
+
+**Identify Top Targeted User Accounts:**
+```spl
+index=* status="Failed"
+| top limit=5 user
+| rename user as "Targeted Credential", count as "Failed Guesses"
+```
+
+### 2. Timeline & Pattern Analysis
+**Map Attack Frequency by Hour (Timecharting):**
+```spl
+index=* | eval hour=strftime(strptime(timestamp, "%Y-%m-%d %H:%M:%S"), "%H")
+| stats count by hour
+| sort hour
+```
+
+**Extract Specific Attacker Timestamps (IP Tracking):**
+```spl
+index=* src_ip="45.33.32.156"
+| sort timestamp
+| table timestamp, user, status
+| rename timestamp as "Time", user as "User", status as "Result"
+```
+
+### 3. Baseline & Demographic Monitoring
+**Compare Overall Authentication Status (Failed vs. Accepted):**
+```spl
+index=*| stats count by status
+```
+
+**Map Attack Origins Geographically:**
+```spl
+index=* status="Failed"
+| iplocation src_ip
+| geostats count by Country
+```
+
+**Audit Successful Logins for Lateral Movement:**
+```spl
+index=* status="Accepted"
+| table timestamp, user, src_ip, hostname
+```
